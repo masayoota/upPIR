@@ -49,7 +49,8 @@ import sys
 import optparse
 
 # Holds the mirror data and produces the XORed blocks
-import fastsimplexordatastore
+#import fastsimplexordatastore
+import simplexordatastore as fastsimplexordatastore
 
 # helper functions that are shared
 import uppirlib

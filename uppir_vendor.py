@@ -152,7 +152,7 @@ def _add_mirrorinfo_to_list(thismirrorinfo):
   # Private function to add mirror information
 
   # add mirror information along with the time
-  mirrorip = thismirrorinfo['ip']
+  mirrorlocation = thismirrorinfo['ip'] + ':' + str(thismirrorinfo['port']) 
 
   # get the lock and add it to the dict
   _global_mirrorinfolock.acquire()
@@ -160,7 +160,7 @@ def _add_mirrorinfo_to_list(thismirrorinfo):
     # I get the time in here, in case I block for a noticible time waiting for
     # the lock
     now = time.time()
-    _global_mirrorinfodict[mirrorip] = {'mirrorinfo':thismirrorinfo, 'advertisetime':now}
+    _global_mirrorinfodict[mirrorlocation] = {'mirrorinfo':thismirrorinfo, 'advertisetime':now}
 
   finally:
     _global_mirrorinfolock.release()
