@@ -1,0 +1,9 @@
+# Compiled source #
+###################
+*.o
+*.so
+
+
+# Generated Python .pyc files
+###################
+*.pyc
