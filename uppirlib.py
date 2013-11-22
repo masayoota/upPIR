@@ -27,6 +27,7 @@ import socket
 import session
 
 
+
 # Check the python version.   It's pretty crappy to do this from a library, 
 # but it's an easy way to check this universally
 if sys.version_info[0] != 2 or sys.version_info[1] < 5:
@@ -206,9 +207,34 @@ def retrieve_rawmanifest(vendorlocation, defaultvendorport=62293):
     A string containing the manifest data (unprocessed).   It is a good idea
     to use parse_manifest to ensure this data is correct.
   """
-  return _remote_query_helper(vendorlocation, "GET MANIFEST", defaultvendorport)
+  message = _remote_query_helper(vendorlocation, "GET MANIFEST", defaultvendorport)
+  idx = message.find('{')  
+  signature = message[:idx]
+  rawmanifest = message[idx:]
 
+  if _verify_manifest(signature, rawmanifest):
+    return rawmanifest
 
+  return '' 
+
+from Crypto.PublicKey import RSA
+from Crypto.Signature import PKCS1_v1_5
+from Crypto.Hash import SHA256
+from base64 import b64decode  
+
+def _verify_manifest(signature, data):
+
+  manifestdict = parse_manifest(data)
+  pub_key = manifestdict['pub_key']
+  rsa_key = RSA.importKey(pub_key)
+  verifier = PKCS1_v1_5.new(rsa_key)
+  datahash = SHA256.new()   
+  datahash.update(data)
+
+  if verifier.verify(datahash, b64decode(signature)):
+    return True
+
+  return False
 
 
 def retrieve_xorblock_from_mirror(mirrorip, mirrorport,bitstring):
@@ -828,6 +854,13 @@ def create_manifest(rootdir=".", hashalgorithm="sha1-base64", block_size=1024*10
    
   # and it is time to get the blockhashlist...
   manifestdict['blockhashlist'] = _compute_block_hashlist(xordatastore, manifestdict['blockcount'], manifestdict['blocksize'], manifestdict['hashalgorithm'])
+
+  # create private/public key pair ans store the private key in the file and public key in the dictionary.
+  rsa_key = RSA.generate(1024)
+  f = open('private_key.txt', 'w')
+  f.write(rsa_key.exportKey())
+  f.close()
+  manifestdict['pub_key'] = rsa_key.publickey().exportKey() 
 
   # let's generate the manifest's hash
   rawmanifest = json.dumps(manifestdict)

@@ -347,7 +347,12 @@ def main():
   # If we were asked to retrieve the mainfest file, do so...
   if _commandlineoptions.retrievemanifestfrom:
     # We need to download this file...
-    rawmanifestdata = uppirlib.retrieve_rawmanifest(_commandlineoptions.retrievemanifestfrom)
+    rawmanifestdata = ''
+    while not rawmanifestdata:
+      rawmanifestdata = uppirlib.retrieve_rawmanifest(_commandlineoptions.retrievemanifestfrom)
+
+
+    
 
     # ...make sure it is valid...
     manifestdict = uppirlib.parse_manifest(rawmanifestdata)

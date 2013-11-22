@@ -189,8 +189,8 @@ class ThreadedVendorRequestHandler(SocketServer.BaseRequestHandler):
 
     # if it's a request for a XORBLOCK
     if requeststring == 'GET MANIFEST':
-
-      session.sendmessage(self.request, _global_rawmanifestdata)
+      signature = sign_data('private_key.txt', _global_rawmanifestdata)
+      session.sendmessage(self.request, signature + _global_rawmanifestdata)
       _log("UPPIRVendor "+remoteip+" "+str(remoteport)+" manifest request")
   
       # done!
@@ -269,6 +269,20 @@ class ThreadedVendorRequestHandler(SocketServer.BaseRequestHandler):
 
 
 
+from Crypto.PublicKey import RSA
+from Crypto.Signature import PKCS1_v1_5
+from Crypto.Hash import SHA256 
+from base64 import b64encode, b64decode 
+def sign_data(private_key_file, data):
+  
+  key = open(private_key_file, 'r').read()
+  private_key = RSA.importKey(key)
+  signer = PKCS1_v1_5.new(private_key)
+  datahash = SHA256.new()
+  datahash.update(data)
+  signature = signer.sign(datahash) 
+
+  return b64encode(signature)
 
 
 def start_vendor_service(manifestdict, ip, port):
