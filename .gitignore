@@ -3,6 +3,10 @@
 *.o
 *.so
 
+# Temporary files that end with ~ and .swp files
+*~
+*.swp
+
 
 # Generated Python .pyc files
 ###################
