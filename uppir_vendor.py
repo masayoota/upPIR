@@ -226,7 +226,6 @@ class ThreadedVendorSSLRequestHandler(SocketServer.BaseRequestHandler):
     # Client communication
     if requeststring == 'GET MANIFEST':
       signature = sign_data('private_key.txt', _global_rawmanifestdata)
-      #session.sendmessage(self.request, _global_rawmanifestdata)
       self.request.sendall(signature + _global_rawmanifestdata)
       _log("UPPIRVendor "+remoteip+" "+str(remoteport)+" manifest request")
 
@@ -238,7 +237,6 @@ class ThreadedVendorSSLRequestHandler(SocketServer.BaseRequestHandler):
       _check_for_expired_mirrorinfo()
 
       # reply with the mirror list
-      #session.sendmessage(self.request, _global_rawmirrorlist)
       self.request.sendall(_global_rawmirrorlist)
       _log("UPPIRVendor "+remoteip+" "+str(remoteport)+" mirrorlist request")
 
@@ -248,7 +246,6 @@ class ThreadedVendorSSLRequestHandler(SocketServer.BaseRequestHandler):
       # we don't know what this is!   Log and tell the requestor
       _log("UPPIRVendor "+remoteip+" "+str(remoteport)+" Invalid request type starts:'"+requeststring[:5]+"'")
 
-      #session.sendmessage(self.request, 'Invalid request type')
       self.request.sendall('Invalid request type')
       return
 
@@ -366,20 +363,6 @@ def sign_data(private_key_file, data):
 
   return b64encode(signature)
 
-"""
-def start_vendor_service(manifestdict, ip, port):
-
-  # this should be done before we are called
-  assert(_global_rawmanifestdata != None)
-
-  # create the handler / server
-  vendorserver = ThreadedVendorServer((ip, port), ThreadedVendorRequestHandler)
-  
-
-  # and serve forever!   This call will not return which is why we spawn a new
-  # thread to handle it
-  threading.Thread(target=vendorserver.serve_forever, name="upPIR vendor server").start()
-"""
 
 def start_vendormir_service(ip, port):
   vendorserver = ThreadedVendorServer((ip, port), ThreadedVendorRequestHandler)
