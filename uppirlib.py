@@ -22,6 +22,7 @@ import math
 
 
 import socket
+import ssl
 
 # use this to turn the stream abstraction into a message abstraction...
 import session
@@ -63,7 +64,7 @@ class IncorrectFileContents(Exception):
 # these keys must exist in a manifest dictionary.
 _required_manifest_keys = ['manifestversion', 'blocksize', 'blockcount', 
                            'blockhashlist', 'hashalgorithm', 
-                           'vendorhostname', 'vendorport', 
+                           'vendorhostname', 'vendorport', 'vendorcliport',
                            'manifesthash', 'fileinfolist' ]
 
 # an example manifest might look like:
@@ -274,7 +275,7 @@ def retrieve_xorblock_from_mirror(mirrorip, mirrorport,bitstring):
 
 
 
-def retrieve_mirrorinfolist(vendorlocation, defaultvendorport=62293):
+def retrieve_mirrorinfolist(vendorlocation, defaultvendorport=60443):
   """
   <Purpose>
     Retrieves the mirrorinfolist from a vendor.  
@@ -352,6 +353,23 @@ def _remote_query_helper(serverlocation, command, defaultserverport):
   
   # first open the socket
   serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+  # if serverport == 60443, use SSL
+  if (serverport == 60443):
+    ssl_serversocket = ssl.wrap_socket(serversocket, server_side=False,
+                                       ca_certs="CA_Certs/ssl.crt",
+                                       ssl_version=ssl.PROTOCOL_TLSv1,
+                                       cert_reqs=ssl.CERT_REQUIRED)
+
+    ssl_serversocket.connect((serverhostname, serverport))
+    #session.sendmessage(ssl_serversocket, command)
+    ssl_serversocket.sendall(command)
+    #rawanswer = session.recvmessage(ssl_serversocket)    
+    rawanswer = ssl_serversocket.recv(4096)
+    ssl_serversocket.close()
+    return rawanswer
+
+  # else connect normally
   serversocket.connect((serverhostname, serverport))
 
   # then issue the relevant command
@@ -752,7 +770,7 @@ def flip_bitstring_bit(bitstring, bitnum):
 
 
 
-def create_manifest(rootdir=".", hashalgorithm="sha1-base64", block_size=1024*1024, offset_assignment_function=nogaps_offset_assignment_function, vendorhostname=None, vendorport=62293):
+def create_manifest(rootdir=".", hashalgorithm="sha1-base64", block_size=1024*1024, offset_assignment_function=nogaps_offset_assignment_function, vendorhostname=None, vendorport=62293, vendorcliport=60443):
   """
   <Purpose>
     Create a manifest  (and an xordatastore ?)
@@ -801,6 +819,7 @@ def create_manifest(rootdir=".", hashalgorithm="sha1-base64", block_size=1024*10
   manifestdict['blocksize'] = block_size
   manifestdict['vendorhostname'] = vendorhostname
   manifestdict['vendorport'] = vendorport
+  manifestdict['vendorcliport'] = vendorcliport
 
 
   # first get the file information

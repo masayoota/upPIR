@@ -143,7 +143,7 @@ def request_blocks_from_mirrors(requestedblocklist, manifestdict):
   """
 
   # let's get the list of mirrors...
-  mirrorinfolist = uppirlib.retrieve_mirrorinfolist(manifestdict['vendorhostname'], manifestdict['vendorport'])
+  mirrorinfolist = uppirlib.retrieve_mirrorinfolist(manifestdict['vendorhostname'], manifestdict['vendorcliport'])
   print "Mirrors: ",mirrorinfolist
 
 

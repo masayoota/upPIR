@@ -45,10 +45,14 @@
 
 import sys
 
+import os
+
 import optparse
 
 # helper functions that are shared
 import uppirlib
+
+import ssl
 
 import optparse
 
@@ -171,6 +175,84 @@ def _add_mirrorinfo_to_list(thismirrorinfo):
 
 ######################### Serve upPIR vendor requests ########################
 
+# Introducing SSL Vendor support
+
+class ThreadedVendorSSLServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+  allow_reuse_address=True
+  def __init__(self, server_address, RequestHandlerClass, keyfile=None, certfile=None):
+    SocketServer.TCPServer.__init__(self, server_address, RequestHandlerClass)
+
+    self.keyfile = keyfile
+    if keyfile != None:
+      if keyfile == False or not os.path.exists(keyfile):
+        raise Exception("Keyfile %s does not exist" % keyfile)
+
+    self.certfile = certfile
+    if certfile != None:
+      if certfile == False or not os.path.exists(certfile):
+        raise Exception("Certfile %s does not exist" % certfile)
+
+    self.mode = ssl.CERT_REQUIRED
+    self.ssl_protocol = ssl.PROTOCOL_TLSv1
+
+  def get_request(self):
+    (sock, sockinfo) = self.socket.accept()
+    sslsock = ssl.wrap_socket(sock, server_side=True, certfile=self.certfile,
+                              keyfile=self.keyfile, ssl_version=self.ssl_protocol)
+    return sslsock, sockinfo
+
+
+  def close_request(self, request):
+    try:
+      request.unwrap()
+    except:
+      pass
+    try:
+      request.close()
+    except:
+      pass
+
+
+class ThreadedVendorSSLRequestHandler(SocketServer.BaseRequestHandler):
+
+  def handle(self):
+
+    # read the request from the SSL socket...
+    requeststring = self.request.read()
+
+    # for logging purposes, get the remote info
+    remoteip, remoteport = self.request.getpeername()
+
+    # Client communication
+    if requeststring == 'GET MANIFEST':
+      signature = sign_data('private_key.txt', _global_rawmanifestdata)
+      #session.sendmessage(self.request, _global_rawmanifestdata)
+      self.request.sendall(signature + _global_rawmanifestdata)
+      _log("UPPIRVendor "+remoteip+" "+str(remoteport)+" manifest request")
+
+      # done!
+      return
+    elif requeststring == 'GET MIRRORLIST':
+      # let's try to clean up the list.   If we are busy with another attempt
+      # to do this, the latter will be a NOOP
+      _check_for_expired_mirrorinfo()
+
+      # reply with the mirror list
+      #session.sendmessage(self.request, _global_rawmirrorlist)
+      self.request.sendall(_global_rawmirrorlist)
+      _log("UPPIRVendor "+remoteip+" "+str(remoteport)+" mirrorlist request")
+
+      # done!
+      return
+    else:
+      # we don't know what this is!   Log and tell the requestor
+      _log("UPPIRVendor "+remoteip+" "+str(remoteport)+" Invalid request type starts:'"+requeststring[:5]+"'")
+
+      #session.sendmessage(self.request, 'Invalid request type')
+      self.request.sendall('Invalid request type')
+      return
+
+
 
 # I don't need to change this much, I think...
 class ThreadedVendorServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer): 
@@ -284,7 +366,7 @@ def sign_data(private_key_file, data):
 
   return b64encode(signature)
 
-
+"""
 def start_vendor_service(manifestdict, ip, port):
 
   # this should be done before we are called
@@ -297,6 +379,18 @@ def start_vendor_service(manifestdict, ip, port):
   # and serve forever!   This call will not return which is why we spawn a new
   # thread to handle it
   threading.Thread(target=vendorserver.serve_forever, name="upPIR vendor server").start()
+"""
+
+def start_vendormir_service(ip, port):
+  vendorserver = ThreadedVendorServer((ip, port), ThreadedVendorRequestHandler)
+  threading.Thread(target=vendorserver.serve_forever, name="upPIR vendor server").start()
+
+
+def start_vendorcli_service(manifestdict, ip, port):
+  assert(_global_rawmanifestdata != None)
+  vendorcliserver = ThreadedVendorSSLServer((ip, port), ThreadedVendorSSLRequestHandler, keyfile='CA_Certs/ssl.key', certfile='CA_Certs/ssl.crt')
+  threading.Thread(target=vendorcliserver.serve_forever, name="upPIR vendor SSL server").start()
+
 
 
 
@@ -398,6 +492,7 @@ def main():
 
   vendorip = manifestdict['vendorhostname']
   vendorport = manifestdict['vendorport']
+  vendorcliport = manifestdict['vendorcliport']
   
   # We should detach here.   I don't do it earlier so that error
   # messages are written to the terminal...   I don't do it later so that any
@@ -410,7 +505,9 @@ def main():
 
  
   # first, let's fire up the upPIR server
-  start_vendor_service(manifestdict, vendorip, vendorport)
+  #start_vendor_service(manifestdict, vendorip, vendorport)
+  start_vendorcli_service(manifestdict, vendorip, vendorcliport)
+  start_vendormir_service(vendorip, vendorport)
 
 
   _log('servers started!')
