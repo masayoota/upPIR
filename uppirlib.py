@@ -185,7 +185,7 @@ def transmit_mirrorinfo(mirrorinfo, vendorlocation, defaultvendorport=62293):
 def retrieve_rawmanifest(vendorlocation, defaultvendorport=62293):
   """
   <Purpose>
-    Retrieves the manifest data from a vendor.   It does not parse this
+    Retrieves and verifies the manifest data from a vendor.    It does not parse this
     data in any way.
 
   <Arguments>
@@ -208,30 +208,41 @@ def retrieve_rawmanifest(vendorlocation, defaultvendorport=62293):
     A string containing the manifest data (unprocessed).   It is a good idea
     to use parse_manifest to ensure this data is correct.
   """
+  
   message = _remote_query_helper(vendorlocation, "GET MANIFEST", defaultvendorport)
+  
+  # retrieve the strings of signature and manifest from message
   idx = message.find('{')  
   signature = message[:idx]
   rawmanifest = message[idx:]
 
+  # verify the manifest with the digital signature of the vendor
   if _verify_manifest(signature, rawmanifest):
     return rawmanifest
 
   return '' 
+  
 
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from Crypto.Hash import SHA256
 from base64 import b64decode  
 
-def _verify_manifest(signature, data):
 
+def _verify_manifest(signature, data):
+  # private function that verifies data using the digital signature
+
+  # gets the public key from the manifest data.
   manifestdict = parse_manifest(data)
   pub_key = manifestdict['pub_key']
   rsa_key = RSA.importKey(pub_key)
-  verifier = PKCS1_v1_5.new(rsa_key)
+  
+  # computes the hash of data
   datahash = SHA256.new()   
   datahash.update(data)
-
+  
+  # verifies the data with the decoded signature
+  verifier = PKCS1_v1_5.new(rsa_key)
   if verifier.verify(datahash, b64decode(signature)):
     return True
 
@@ -874,7 +885,7 @@ def create_manifest(rootdir=".", hashalgorithm="sha1-base64", block_size=1024*10
   # and it is time to get the blockhashlist...
   manifestdict['blockhashlist'] = _compute_block_hashlist(xordatastore, manifestdict['blockcount'], manifestdict['blocksize'], manifestdict['hashalgorithm'])
 
-  # create private/public key pair ans store the private key in the file and public key in the dictionary.
+  # create an RSA private/public key pair and store the private key in the file and public key in the manifest dictionary.
   rsa_key = RSA.generate(1024)
   f = open('private_key.txt', 'w')
   f.write(rsa_key.exportKey())

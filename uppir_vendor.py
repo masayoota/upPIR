@@ -175,6 +175,21 @@ def _add_mirrorinfo_to_list(thismirrorinfo):
 
 ######################### Serve upPIR vendor requests ########################
 
+from Crypto.PublicKey import RSA
+from Crypto.Signature import PKCS1_v1_5
+from Crypto.Hash import SHA256 
+from base64 import b64encode
+
+# get the private key from the file and prepare for signing data 
+try:
+  with open('private_key.txt','r') as f:
+    _key = f.read()
+  _signer = PKCS1_v1_5.new(RSA.importKey(_key))
+
+except IOError:
+  print "cannot find private_key.txt."
+
+
 # Introducing SSL Vendor support
 
 class ThreadedVendorSSLServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
@@ -225,7 +240,8 @@ class ThreadedVendorSSLRequestHandler(SocketServer.BaseRequestHandler):
 
     # Client communication
     if requeststring == 'GET MANIFEST':
-      signature = sign_data('private_key.txt', _global_rawmanifestdata)
+      # sign the manifest data
+      signature = _sign_data(_signer, _global_rawmanifestdata)
       self.request.sendall(signature + _global_rawmanifestdata)
       _log("UPPIRVendor "+remoteip+" "+str(remoteport)+" manifest request")
 
@@ -268,7 +284,8 @@ class ThreadedVendorRequestHandler(SocketServer.BaseRequestHandler):
 
     # if it's a request for a XORBLOCK
     if requeststring == 'GET MANIFEST':
-      signature = sign_data('private_key.txt', _global_rawmanifestdata)
+      # sign the manifest data
+      signature = _sign_data(_signer, _global_rawmanifestdata)
       session.sendmessage(self.request, signature + _global_rawmanifestdata)
       _log("UPPIRVendor "+remoteip+" "+str(remoteport)+" manifest request")
   
@@ -347,19 +364,15 @@ class ThreadedVendorRequestHandler(SocketServer.BaseRequestHandler):
       return
 
 
-
-from Crypto.PublicKey import RSA
-from Crypto.Signature import PKCS1_v1_5
-from Crypto.Hash import SHA256 
-from base64 import b64encode, b64decode 
-def sign_data(private_key_file, data):
+def _sign_data(rsa_signer, data):
+  # private function to sign data with the private key
   
-  key = open(private_key_file, 'r').read()
-  private_key = RSA.importKey(key)
-  signer = PKCS1_v1_5.new(private_key)
+  # computes the hash of data
   datahash = SHA256.new()
   datahash.update(data)
-  signature = signer.sign(datahash) 
+  
+  # signs the data
+  signature = rsa_signer.sign(datahash) 
 
   return b64encode(signature)
 

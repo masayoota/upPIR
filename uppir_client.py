@@ -313,8 +313,11 @@ def main():
   
   # If we were asked to retrieve the mainfest file, do so...
   if _commandlineoptions.retrievemanifestfrom:
+    
     # We need to download this file...
-
+    # If the manifest cannot be verified with the digital signature of the vebdor, 
+    # we get the empty manifest. We keep trying to get this file until we get 
+    # the correct manifest from the vendor.
     rawmanifestdata = ''
     while not rawmanifestdata:
       rawmanifestdata = uppirlib.retrieve_rawmanifest(_commandlineoptions.retrievemanifestfrom)
